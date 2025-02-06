@@ -17,7 +17,7 @@ public struct Pendu
     {
         // Récupération des mots présents dans un fichier
         FileReader fileReader = new FileReader();
-        string[] mots = fileReader.ReadFile("Data/pokemon.txt");
+        string[] mots = fileReader.ReadFile("Data/mots.txt");
 
         // Initialisation des champs sur base d'un mot sélectionné aléatoirement dans le tableau de mots
         Mot = mots[Random.Shared.Next(mots.Length)].ToUpper();
