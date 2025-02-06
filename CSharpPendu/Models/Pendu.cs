@@ -1,23 +1,78 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using CSharpPendu.Enums;
 
 namespace CSharpPendu.Models;
 
 public struct Pendu
 {
+    // Champs
     string Mot;
     char[] Lettres;
     bool[] LettresTrouvees;
 
-    List<char> LettresProposees;
+    int NbPartiesGagnees;
+    int NbPartiesPerdues;
 
+    List<char> LettresProposees;
     const int MAX_TENTATIVES = 8;
     int NbTentatives;
 
+    EtatPartie Etat;
+    CategorieMot Categorie;
+
+    // Méthodes
+    public void Jouer()
+    {
+        NbPartiesGagnees = 0;
+        NbPartiesPerdues = 0;
+
+        bool rejouer = true;
+        while (rejouer)
+        {
+            // Initialisation de la partie
+            Initialiser();
+
+            while (Etat == EtatPartie.EnCours)
+            {
+                AfficherEtat();
+                DevinerLettre();
+                VerificationVictoire();
+            }
+
+            Console.WriteLine($"\nVoulez-vous rejouer ? (true/false)");
+            bool valide = false;
+            while (!valide)
+            {
+                valide = bool.TryParse(Console.ReadLine(), out rejouer);
+                if (!valide)
+                {
+                    Console.WriteLine("Entrée invalide. Vous devez entrer 'true' ou 'false'.");
+                }
+            }
+        }
+    }
+
     private void Initialiser()
     {
+        Console.Clear();
+
+        Console.WriteLine("\nChoisissez une catégorie :");
+        foreach (object? categorie in Enum.GetValues(typeof(CategorieMot)))
+        {
+            Console.WriteLine($"- {categorie}");
+        }
+
+        bool valide = false;
+        while (!valide)
+        {
+            string choix = Console.ReadLine();
+            valide = Enum.TryParse(choix, true, out Categorie);
+            if (!valide) Console.WriteLine("Catégorie invalide. Essayez encore.");
+        }
+
         // Récupération des mots présents dans un fichier
         FileReader fileReader = new FileReader();
-        string[] mots = fileReader.ReadFile("Data/mots.txt");
+        string chemin = $"Data/{Categorie.ToString().ToLower()}.txt";
+        string[] mots = fileReader.ReadFile(chemin);
 
         // Initialisation des champs sur base d'un mot sélectionné aléatoirement dans le tableau de mots
         Mot = mots[Random.Shared.Next(mots.Length)].ToUpper();
@@ -25,14 +80,25 @@ public struct Pendu
         LettresTrouvees = new bool[Mot.Length];
         LettresProposees = new List<char>();
         NbTentatives = 0;
+
+        Etat = EtatPartie.EnCours;
     }
 
     private void AfficherEtat()
     {
         Console.Clear();
-        Console.WriteLine($"\n╔══════════════════╗");
-        Console.WriteLine($"║ Projet - Pendu   ║");
-        Console.WriteLine($"╚══════════════════╝\n");
+        Console.WriteLine();
+        Console.WriteLine($"╔════════════════════╗");
+        Console.WriteLine($"║   Projet - Pendu   ║");
+        Console.WriteLine($"╚════════════════════╝");
+        Console.WriteLine();
+
+        Console.WriteLine($"Catégorie sélectionnée: {Categorie}");
+
+        Console.WriteLine($"Parties gagnées: {NbPartiesGagnees}");
+        Console.WriteLine($"Parties perdues: {NbPartiesPerdues}");
+
+        Console.WriteLine($"Tentatives restantes: {MAX_TENTATIVES - NbTentatives}");
 
         AfficherPendu();
 
@@ -51,55 +117,8 @@ public struct Pendu
             format += " ";
         }
 
-        Console.WriteLine($"\nMot à deviner: {format}");
-        Console.WriteLine($"Tentatives restantes: {MAX_TENTATIVES - NbTentatives}");
+        Console.WriteLine($"Mot à deviner: {format}");
         Console.WriteLine($"Lettres proposées: [ {string.Join(", ", LettresProposees)} ]");
-    }
-
-    public void Jouer()
-    {
-        bool rejouer = true;
-        while (rejouer)
-        {
-            // Initialisation de la partie
-            Initialiser();
-
-
-            while (!VerifierMotTrouve() && (MAX_TENTATIVES - NbTentatives) > 0)
-            {
-                AfficherEtat();
-                DevinerLettre();
-            }
-
-            VerificationVictoire();
-
-            Console.WriteLine($"\nVoulez-vous rejouer ? (true/false)");
-            bool valide = false;
-            while (!valide)
-            {
-                valide = bool.TryParse(Console.ReadLine(), out rejouer);
-                if (!valide)
-                {
-                    Console.WriteLine("Entrée invalide. Vous devez entrer 'true' ou 'false'.");
-                }
-            }
-
-        }
-    }
-
-    private void VerificationVictoire()
-    {
-        Console.Clear();
-
-        if (VerifierMotTrouve())
-        {
-            Console.WriteLine($"\nFéliciations, vous avez trouvé le mot \"{Mot}\" en {NbTentatives} tentative(s).");
-        }
-        else
-        {
-            AfficherPendu();
-            Console.WriteLine($"\nPerdu ! Le mot a deviné était {Mot}");
-        }
     }
 
     private void DevinerLettre()
@@ -117,7 +136,6 @@ public struct Pendu
 
         if (!Lettres.Contains(lettre))
         {
-            LettresProposees.Add(lettre);
             NbTentatives++;
         }
         else
@@ -131,6 +149,30 @@ public struct Pendu
             }
         }
 
+        LettresProposees.Add(lettre);
+
+    }
+
+    private void VerificationVictoire()
+    {
+        if (!VerifierMotTrouve() && (MAX_TENTATIVES - NbTentatives) > 0) return;
+
+        Console.Clear();
+
+        if (VerifierMotTrouve())
+        {
+            Etat = EtatPartie.Gagnee;
+            NbPartiesGagnees++;
+            Console.WriteLine($"\nFélicitations, vous avez trouvé le mot \"{Mot}\" en {NbTentatives} tentative(s) infructueuse(s).");
+
+        }
+        else
+        {
+            Etat = EtatPartie.Perdue;
+            NbPartiesPerdues++;
+            AfficherPendu();
+            Console.WriteLine($"\nPerdu ! Le mot à deviner était \"{Mot}\".");
+        }
     }
 
     private bool VerifierMotTrouve()
@@ -145,20 +187,94 @@ public struct Pendu
     private void AfficherPendu()
     {
         string[] pendu = {
-        "  _______\n |       |\n |       O\n |      /|\\\n |      / \\\n |\n_|_",
-        "  _______\n |       |\n |       O\n |      /|\\\n |      / \n |\n_|_",
-        "  _______\n |       |\n |       O\n |      /|\\\n |       \n |\n_|_",
-        "  _______\n |       |\n |       O\n |      /|\n |       \n |\n_|_",
-        "  _______\n |       |\n |       O\n |       |\n |       \n |\n_|_",
-        "  _______\n |       |\n |       O\n |       \n |       \n |\n_|_",
-        "  _______\n |       |\n |       \n |       \n |       \n |\n_|_",
-        "  _______\n |       \n |       \n |       \n |       \n |\n_|_",
-        "  \n |       \n |       \n |       \n |       \n |\n_|_",
-        "  \n |       \n |       \n |       \n |       \n \n_|_",
-        "  \n \n \n \n \n \n_|_"
+        "  _______" +
+        "\n |       |" +
+        "\n |       O" +
+        "\n |      /|\\" +
+        "\n |      / \\" +
+        "\n |" +
+        "\n_|_",
+
+        "  _______" +
+        "\n |       |" +
+        "\n |       O" +
+        "\n |      /|\\" +
+        "\n |      / " +
+        "\n |" +
+        "\n_|_",
+
+        "  _______" +
+        "\n |       |" +
+        "\n |       O" +
+        "\n |      /|\\" +
+        "\n |       " +
+        "\n |" +
+        "\n_|_",
+
+        "  _______" +
+        "\n |       |" +
+        "\n |       O" +
+        "\n |      /|" +
+        "\n |       " +
+        "\n |" +
+        "\n_|_",
+
+        "  _______" +
+        "\n |       |" +
+        "\n |       O" +
+        "\n |       |" +
+        "\n |       " +
+        "\n |" +
+        "\n_|_",
+
+        "  _______" +
+        "\n |       |" +
+        "\n |       O" +
+        "\n |       " +
+        "\n |       " +
+        "\n |" +
+        "\n_|_",
+
+        "  _______" +
+        "\n |       " +
+        "|\n |       " +
+        "\n |       " +
+        "\n |       " +
+        "\n |" +
+        "\n_|_",
+        "  _______" +
+        "\n |       " +
+        "\n |       " +
+        "\n |       " +
+        "\n |       " +
+        "\n |" +
+        "\n_|_",
+
+        "  " +
+        "\n |       " +
+        "\n |       " +
+        "\n |       " +
+        "\n |       " +
+        "\n |" +
+        "\n_|_",
+
+        "  " +
+        "\n |       " +
+        "\n |       " +
+        "\n |       " +
+        "\n |       " +
+        "\n " +
+        "\n_|_",
+
+        "  " +
+        "\n " +
+        "\n " +
+        "\n " +
+        "\n " +
+        "\n " +
+        "\n_|_"
         };
 
-        Console.WriteLine(pendu[MAX_TENTATIVES - NbTentatives]);
+        Console.WriteLine($"\n{pendu[MAX_TENTATIVES - NbTentatives]}\n");
     }
-
 }
